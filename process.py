@@ -15,15 +15,15 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import BernoulliNB
 
 
-
-
 dbpath = "oferty_lang.db"
 conn = sqlite3.connect(dbpath)
-o = pd.read_sql_query("SELECT nazwa,firma, miejsce,opis FROM oferty",conn)
+o = pd.read_sql_query("""SELECT nazwa,firma, miejsce,opis FROM oferty\
+                         WHERE lang=="pl" """,conn)
 conn.close()
 
 
 html = o["opis"]
+
 text_offers = []
 
 for html_content in html:
@@ -67,65 +67,106 @@ for html_content in html:
 
 #for offer in text_offers:
 o["text"] = text_offers
-o = o.iloc[0:1000,]    
 
+#o = o.iloc[0:1000,]    
+#Wygląda na to, że wydłużanie tabeli w pandas jest
+#OKROPNIE wolne!
 
-offer_lists = pd.DataFrame(columns=("offer_id", "list"), dtypes=)
+#lists = pd.DataFrame(columns=("offer_id", "list"))
+#re_all_lists = re.compile(r"^(.*\n+(\W*[\*-].*\n)(.+\n)*)",re.I | re.M)
+##for i, row in o.itertuples():
+#for row in o.itertuples():
+#    i = row[0] 
+#    t = row[-1]
+#    print(i)
+#    matches = re_all_lists.findall(t)
+#    for m in matches:
+#        lists.loc[ len(lists) ] = [i,m[0].strip()]
+        
+#UWAGA -> przyjmuje brak zmian w numerowaniu indexow        
+l = []
 re_all_lists = re.compile(r"^(.*\n+(\W*[\*-].*\n)(.+\n)*)",re.I | re.M)
-for i, row in o.iterrows():
-    print(i)
-    print(type(i))
-    t = row["text"]
+for i,t in enumerate(o.loc[:, "text"]):
     matches = re_all_lists.findall(t)
     for m in matches:
-        offer_lists.loc[ len(offer_lists) ] = [i,m[0]]
-        
-        
-
-def bayes_one(list_table, reg, attr):
+        l.append([i,m[0]])
+lists = pd.DataFrame(l, columns=("offer_id", "list"))        
+    
+    
+def bayes_one(parts, reg, attr):
     r = re.compile(reg)
     good_parts_ids = []
     bad_parts = []
     good_parts = []
-    for i, row in list_table.iterrows():
+    for i, row in parts.iterrows():
+        #if r.match(lists.loc[0,"list"].split('\n',1)[0]):
         if r.match(row["list"]):
             good_parts_ids.append(i)
             good_parts.append(row["list"])
     
-    for gi in good_parts_ids:
-        #take bad parts
-        offer_id = 
-        bad = list_table[ list_table["offer_id"] == gi ]
-        print(bad)
+    for gi in good_parts_ids: 
+        bad = parts[ parts["offer_id"] == parts.loc[gi,"offer_id" ] ]     
         bad = bad[ bad.index != gi ]
-        #print(bad)
+
         if len(bad) > 0:
             for i, row in bad.iterrows():
                 bad_parts.append(row["list"])
-            
-    #for g in good_parts:
-    #    print(g)
+    
+    for g in good_parts:
+        print(g)
 
-    #for b in bad_parts:
-    #    print(b)
-            
-#    inp = good_parts + bad_parts
-#    out = [1]*len(good_parts) + [0]*len(bad_parts)
-#    
-#    count_vectorizer = CountVectorizer(binary=True)
-#    #counts = count_vectorizer.fit_transform(o['oferujemy'].dropna().values)
-#    counts = count_vectorizer.fit_transform(inp)
-#
-#    classifier = BernoulliNB()
-#    classifier.fit(counts, out)
-#    
-#    cls_counts = count_vectorizer.transform(list_table["list"])
-#    predictions = classifier.predict(cls_counts)
-#    list_table[attr] = predictions
+    for b in bad_parts:
+        print(b)
+        
+        
+    print("Sizeof good parts")
+    print(len(good_parts))
+    print("Sizeof bad parts")
+    print(len(bad_parts))   
+        
+    inp = good_parts + bad_parts
+    out = [1]*len(good_parts) + [0]*len(bad_parts)
+    
+    count_vectorizer = CountVectorizer(binary=True)
+    #counts = count_vectorizer.fit_transform(o['oferujemy'].dropna().values)
+    counts = count_vectorizer.fit_transform(inp)
+
+    classifier = BernoulliNB()
+    classifier.fit(counts, out)
+    
+    cls_counts = count_vectorizer.transform(parts["list"])
+    predictions = classifier.predict(cls_counts)
+    parts[attr] = predictions
             
 
-bayes_one(offer_lists, r"(Ofer.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "oferujemy" )
+bayes_one(lists, r"(Ofer.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "oferta" )
+bayes_one(lists, r"(Wymag.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "wymagania" )
+bayes_one(lists, r"(Obowi.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "obowiazki" )
 
+#print(lists)
+#lists[ lists["oferta"] == 1]
+
+
+temp = lists[ lists["oferta"] == 1]
+temp["fist"] = temp.loc[:,"list"].apply(
+         lambda x: x.split("\n", 1)[0].strip().lower())
+set(temp["fist"])
+
+#lists["oferta"].apply( lambda x: x)
+
+#Empty
+empty = lists[ lists.iloc[:,2:].sum(axis=1) == 0  ]
+print(len(empty))
+print(empty)
+
+#Many
+many = lists[ lists.iloc[:,2:].sum(axis=1) > 1  ]
+print(len(many))
+print(many)
+ 
+
+
+#lists.iloc[(18,:]
 
 
 
