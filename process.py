@@ -21,6 +21,7 @@ o = pd.read_sql_query("""SELECT nazwa,firma, miejsce,opis FROM oferty\
                          WHERE lang=="pl" """,conn)
 conn.close()
 
+print("Database loaded with {0} entries", len(o))
 
 html = o["opis"]
 
@@ -65,8 +66,11 @@ for html_content in html:
     text_offers.append(text)
     
 
-#for offer in text_offers:
+
 o["text"] = text_offers
+print("Parsing html to text done")
+
+
 
 #o = o.iloc[0:1000,]    
 #Wygląda na to, że wydłużanie tabeli w pandas jest
@@ -89,18 +93,18 @@ re_all_lists = re.compile(r"^(.*\n+(\W*[\*-].*\n)(.+\n)*)",re.I | re.M)
 for i,t in enumerate(o.loc[:, "text"]):
     matches = re_all_lists.findall(t)
     for m in matches:
-        l.append([i,m[0]])
+        l.append([i,m[0].strip("\n\t ")])
 lists = pd.DataFrame(l, columns=("offer_id", "list"))        
     
-    
-def bayes_one(parts, reg, attr):
-    r = re.compile(reg)
+print("Extracting lists done") 
+   
+def bayes_one(parts, start, attr):
     good_parts_ids = []
     bad_parts = []
     good_parts = []
     for i, row in parts.iterrows():
         #if r.match(lists.loc[0,"list"].split('\n',1)[0]):
-        if r.match(row["list"]):
+        if row["list"].split("\n", 1)[0].strip(":\t ").lower() in start:
             good_parts_ids.append(i)
             good_parts.append(row["list"])
     
@@ -112,11 +116,11 @@ def bayes_one(parts, reg, attr):
             for i, row in bad.iterrows():
                 bad_parts.append(row["list"])
     
-    for g in good_parts:
-        print(g)
-
-    for b in bad_parts:
-        print(b)
+#    for g in good_parts:
+#        print(g)
+#
+#    for b in bad_parts:
+#        print(b)
         
         
     print("Sizeof good parts")
@@ -139,18 +143,40 @@ def bayes_one(parts, reg, attr):
     parts[attr] = predictions
             
 
-bayes_one(lists, r"(Ofer.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "oferta" )
-bayes_one(lists, r"(Wymag.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "wymagania" )
-bayes_one(lists, r"(Obowi.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "obowiazki" )
+#bayes_one(lists, r"(Ofer.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "oferta" )
+#bayes_one(lists, r"(Wymag.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "wymagania" )
+#bayes_one(lists, r"(Obowi.*\n+(\W*[\*-].*\n)(.+\n)*)"  , "obowiazki" )
+
+bayes_one(lists, ["oferta", "oferujemy", "oferujemy",
+                  "zapewniamy", "kandydatom oferujemy",
+                  "firma oferuje"]  , "oferta" )
+print("bayes: oferta - done")
+bayes_one(lists, ["wymagania", "wymagamy",
+                  "oczekiwania", "oczekujemy",
+                  "nasze oczekiwania"]  , "wymagania" )
+print("bayes: wymagania - done")
+bayes_one(lists, ["zakres obowiązków", "obowiązki",
+                  "będziesz odpowiedzialny za",
+                  "zakres odpowiedzialności",
+                  "twoje zadania",
+                  "główne zadania",
+                  "zakres zadań", "zadania", "główne obowiązki"],
+                  "obowiazki" )
+print("bayes: obowiazki - done")
 
 #print(lists)
 #lists[ lists["oferta"] == 1]
 
 
-temp = lists[ lists["oferta"] == 1]
-temp["fist"] = temp.loc[:,"list"].apply(
-         lambda x: x.split("\n", 1)[0].strip().lower())
-set(temp["fist"])
+lists[ lists["oferta"] == 1 ].loc[:,"list"].\
+    apply(lambda x: x.split("\n", 1)[0]).value_counts()
+
+lists[ lists["wymagania"] == 1 ].loc[:,"list"].\
+    apply(lambda x: x.split("\n", 1)[0]).value_counts()
+
+lists[ lists["obowiazki"] == 1 ].loc[:,"list"].\
+    apply(lambda x: x.split("\n", 1)[0]).value_counts()
+
 
 #lists["oferta"].apply( lambda x: x)
 
