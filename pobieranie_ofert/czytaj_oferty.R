@@ -171,8 +171,8 @@ aktualizuj.oferty <- function(baza) {
     
     if (!"oferty" %in% dbListTables(db)) {
         dbSendQuery(db, "create table oferty 
-                    (link text, nazwa text, firma text, miejsce text, typ texrt,
-                     zarobki text, roxpoczecie text, zakonczenie text, opis text)")
+                    (link text, nazwa text, firma text, miejsce text, typ text,
+                     zarobki text, rozpoczecie text, zakonczenie text, opis text)")
     }
     
     linki.stare <- dbGetQuery(db, "select link from oferty")$link
